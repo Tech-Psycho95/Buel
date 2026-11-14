@@ -137,3 +137,7 @@ e2e/                    # Playwright journey + console sweep
 fixtures/               # deterministic demo data (labeled)
 drizzle/                # generated SQL migrations
 ```
+---
+
+https://github.com/user-attachments/assets/da080511-20eb-4e1e-b3bc-b5f6a2132294
+
