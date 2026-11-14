@@ -1,0 +1,135 @@
+# BUEL
+
+**Autonomous market intelligence — evidence-first, adversarial, paper-trading only.**
+
+Other tools show a signal. BUEL shows the evidence behind it, the strongest argument
+against it, the conditions that would invalidate it — and how the decision performed over time.
+
+> Informational only. **Not financial advice.** Strictly paper trading: no private keys, no
+> wallet signing, no broker credentials, and no real-money execution path exists anywhere in
+> this codebase.
+
+---
+
+## What it does
+
+| Module | What you get |
+|---|---|
+| **Command Center** | Data-mode status, watchlist snapshot, top movers, latest gated decisions |
+| **Live Market Pulse** | Supported perps with price, 24h change, volume, funding, open interest + freshness badges |
+| **Agent Council** | Bull / Bear / Risk / Analyst produce structured, evidence-linked theses |
+| **Red-Team** | Adversarial attack on the leading thesis: contradictions, weak assumptions, disclosed missing inputs |
+| **Judge + Quality Gate** | Pure-code LONG / SHORT / NO_TRADE / ABSTAIN with confidence and plain-language gate checks |
+| **Paper Trading** | Simulated entries/exits/stops/targets with fee + slippage; full order audit trail |
+| **Portfolio Guardian** | Deterministic risk-limit checks (order size, concentration, leverage, count, daily loss) with breach explanations |
+| **Scenario Lab** | Counterfactual price/volatility shocks re-run through the same council pipeline (labeled hypothetical) |
+| **Strategy Arena** | Momentum / mean-reversion / breakout / defensive backtests — no look-ahead, warm-up excluded, assumptions disclosed |
+| **Decision Ledger** | Immutable decision snapshots; replay renders the stored document exactly |
+| **Market Memory** | Historical analogues via feature-vector similarity — context, never predictions |
+| **Performance Lab** | Directional/gate precision, expectancy, drawdown — sample sizes and methods always shown |
+| **Catalyst Intelligence** | Facts vs hypotheses (labeled demo fixture in this build — no live feed fabricated) |
+| **Evidence Graph** | Source → observation → claim → challenge → judge → gate provenance per decision |
+| **Wallet Forensics** | Paste a Hyperliquid address: deterministic autopsy of its perpetuals trading |
+| **Account** | Watchlists, Risk Preferences, Settings (sign-in method, session hygiene) |
+
+### Wallet Forensics highlights
+
+- **Accounting separation (exact formula):** `Net Trading PnL = Realized PnL − Signed Fee Total + Signed Net Funding`
+  (positive funding = received; builder fees are never double-counted; non-USDC fee denominations are reported separately).
+- **Position reconstruction** as a per-coin state machine (adds, partial exits, full closes, reversals); incomplete
+  lifecycles are excluded from win-rate math but still count toward realized PnL (`closedPnl` is authoritative).
+- **Post-Loss Size Escalation** — descriptive statistics only, never psychological claims.
+- **Honest coverage badges**: `Complete API-Available Coverage` or `Partial Coverage`, with fills analyzed,
+  window covered, exclusion categories (Unsupported HIP-3 markets / spot pairs / unknown), and API limits shown.
+- **Address guidance**: agent (API) wallets often return no history — the UI explains that fills are recorded under
+  the master/sub-account, and the analysis covers exactly the address provided.
+
+## Architecture
+
+- **Next.js 16 (App Router) + TypeScript + Tailwind v4**, `proxy.ts` for anonymous-visitor redirect UX only —
+  real authorization is server-side in every layout and API route.
+- **PostgreSQL (Neon/Supabase) via Drizzle ORM.** All persistence: users, sessions, watchlists, risk limits,
+  decisions + immutable snapshots, paper orders/positions, outcomes, catalysts, rate-limit counters.
+  Local dev without `DATABASE_URL` falls back to embedded Postgres (PGlite) under `.data/pglite` — a development
+  convenience, never selected in production.
+- **decimal.js for every financial calculation.** Hyperliquid numbers arrive as strings and are parsed to Decimal,
+  never float-typed. Money math lives in `lib/money.ts`.
+- **Hyperliquid adapter** (`lib/market-data/`): weighted token-bucket + bounded concurrency, retry/backoff, TTL
+  caches, inclusive-overlap time pagination with endpoint-specific event identity (`tid`/`nonce`/payload
+  fingerprints with multiplicity reconciliation), stall-aware coverage classification, deterministic labeled
+  demo seed fallback.
+- **Deterministic decision core**: evidence builders (`lib/agents/evidence.ts`), personas + Red-Team
+  (`personas.ts`, `redteam.ts`), Judge + Quality Gate (`lib/decision-policy/judge-gate.ts`) — pure code, no LLM
+  anywhere in a decision.
+- **Optional LLM narratives**: `ANTHROPIC_API_KEY` enables narrative text for forensics autopsies. Output is
+  zod-schema-validated, every cited evidence ID is verified against the registry, and any number not present in
+  the evidence payload causes the narrative to be **discarded** in favor of the deterministic template. The LLM
+  can never modify a metric or override the Judge/Gate.
+- **Auth (Privy)**: sign-in is handled by Privy (email OTP, Google, wallet, passkey) — BUEL stores **no
+  passwords**. The browser posts the Privy access token + identity token to `/api/auth/privy/session`, where the
+  server verifies the token via the official `@privy-io/server-auth` SDK (signature, issuer, audience, expiry),
+  resolves the Privy DID to the internal BUEL user through the `privy_identities` mapping, and issues an
+  opaque HttpOnly session cookie (hashed at rest, sliding expiry). `users.id` is the sole ownership key — email
+  and wallet strings are never ownership keys. Pre-Privy accounts are never auto-merged by email match: claiming
+  requires a one-time server-side legacy-password proof. Origin/Host validation on all state-changing requests
+  and persistent Postgres-backed API rate limiting are unchanged.
+
+## Run locally
+
+```bash
+npm install            # pinned via package-lock.json
+cp .env.example .env.local   # optional: DATABASE_URL, ANTHROPIC_API_KEY
+npm run dev            # http://localhost:3111 (pinned to avoid clashing with other dev servers)
+```
+
+With no `DATABASE_URL`, the app runs on embedded Postgres (data under `.data/pglite`). With no
+`ANTHROPIC_API_KEY`, narratives use the deterministic template (clearly labeled). Set
+`SENTISEL_DEMO_DATA=1` to force labeled demo market data — used by the e2e suite.
+
+## Tests
+
+```bash
+npm test               # 114 unit + integration tests (deterministic, in-memory Postgres, mocked network)
+npm run test:e2e       # Playwright: full demo journey + console-error sweep (demo mode, no external calls)
+npm run test:live      # opt-in live checks: RUN_LIVE=1 npm run test:live (real Hyperliquid/Anthropic)
+```
+
+- Financial formulas, the position state machine, overlap pagination/dedup, coverage classification,
+  signed-fee accounting, Judge rules and Gate checks, paper fills/fees/slippage, backtest no-look-ahead and
+  Guardian limits all have dedicated unit tests.
+- Integration tests cover the incomplete-history boundary, the cash-flow reconciliation (deposits/withdrawals
+  never inflate trading PnL), auth flows, per-user data isolation, adapter retry/fallback, and LLM→template
+  fallback.
+- The e2e journey walks signup → onboarding → all 16 modules → a gated council decision → a paper fill →
+  ledger replay → forensics autopsy + chat → logout → login, and a console sweep asserts zero page errors.
+
+## Deploy (Vercel)
+
+1. Create a Postgres database (Neon or Supabase) and set `DATABASE_URL`.
+2. Optional: `ANTHROPIC_API_KEY` for LLM narratives; `SENTISEL_SECRET` for token signing.
+3. Apply migrations: `npx drizzle-kit migrate` (or set `SENTISEL_AUTO_MIGRATE=1` for single-instance boot).
+4. `vercel --prod`. Verify: signup → onboarding → all 16 nav destinations → forensics on a real address.
+
+## Known limitations (disclosed in-product)
+
+- V1 analyzes **core perpetuals only**; HIP-3 builder markets and spot pairs are counted and disclosed as
+  excluded categories, never silently merged.
+- Full-collateral paper simulation: no margin/liquidation modeling; protective orders evaluate on market-data
+  refresh (event-driven), not a background scheduler.
+- Catalysts are a labeled demo fixture; no live news feed is integrated.
+- File-based e2e/test fallbacks (`PGlite`) are dev-only; production requires `DATABASE_URL`.
+- History walks respect documented API caps; when a cap or boundary stall binds, the UI says **Partial
+  Coverage** and explains why.
+
+## Repository layout
+
+```
+app/                    # routes: (public) landing/auth, (app) workspace, (onboarding), api/*
+components/             # UI kit + module workbenches
+lib/                    # money, db (Drizzle), auth, http, market-data, forensics, agents,
+                        # decision-policy, simulation, portfolio, analytics, memory, nav
+tests/{unit,integration,live}/  # Vitest suites
+e2e/                    # Playwright journey + console sweep
+fixtures/               # deterministic demo data (labeled)
+drizzle/                # generated SQL migrations
+```

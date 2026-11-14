@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794355790862,
+      "tag": "0000_misty_maginty",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794524890783,
+      "tag": "0001_add_privy_identities",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794688624641,
+      "tag": "0002_add_username",
+      "breakpoints": true
+    }
+  ]
+}

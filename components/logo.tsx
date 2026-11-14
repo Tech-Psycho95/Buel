@@ -1,0 +1,95 @@
+import type { CSSProperties } from "react";
+
+/*
+ * BUEL logo — the canonical vector identity recreated 1:1 from the approved
+ * reference (public/buel-symbol*.svg + public/buel-wordmark.svg are the
+ * standalone asset files; this component embeds the identical geometry).
+ *
+ * The pixelated B is built from 15 exact rectangular pixel blocks (the
+ * supplied artwork's own geometry, vectorised from the cleaned source).
+ * The wordmark is traced from the supplied lettering so in-app typography
+ * matches the approved brand exactly.
+ *
+ * tone="light" -> white logo, for the app's dark surfaces (default)
+ * tone="dark"  -> black logo, for light surfaces
+ * variant:
+ *   "symbol" pixel-B emblem only
+ *   "lockup" emblem + BUEL wordmark with the approved lockup spacing
+ */
+
+const SYMBOL_PATH =
+  "M0 279h143v83h-143zM0 506h143v81h-143zM0 732h143v137h-143zM14 1h129v142h-129zM143 143h143v80h-143zM143 238h143v41h-143zM143 362h59v144h-59zM143 587h143v145h-143zM202 298h84v64h-84zM202 506h84v81h-84zM286 1h266v142h-266zM286 362h266v144h-266zM286 732h266v137h-266zM552 143h141v219h-141zM552 506h141v226h-141z";
+
+const SYMBOL_VIEWBOX = "0 0 693 869";
+
+const WORDMARK_PATH =
+  "M 0 185 C 0 332.305, 0.255 370.011, 1.250 370.054 C 16.448 370.711, 180.231 370.674, 194.500 370.010 C 236.767 368.044, 262.846 359.945, 283.437 342.389 C 308.905 320.676, 320.228 282.199, 312.380 244.038 C 307.331 219.489, 293.466 199.768, 272 186.604 C 266.775 183.400, 261.217 179.988, 259.648 179.023 C 256.796 177.269, 256.796 177.269, 263.143 173.413 C 270.881 168.712, 282.241 157.580, 287.472 149.571 C 307.546 118.836, 305.078 66.149, 282.277 38.693 C 268.373 21.950, 250.205 10.936, 226.751 5.030 C 207.293 0.131, 204.117 0.006, 98.750 0.003 L 0 0 0 185 M 358.009 106.750 C 358.018 216.084, 358.474 232.853, 361.976 252.533 C 372.699 312.795, 409.276 354.560, 464.398 369.482 C 497.375 378.409, 538.805 377.782, 569.693 367.887 C 625.470 350.021, 661.366 302.258, 667.952 237.144 C 668.615 230.589, 669 185.168, 669 113.394 L 669 0 629.536 0 L 590.072 0 589.702 115.250 C 589.304 239.815, 589.474 235.742, 583.925 252.986 C 576.642 275.614, 559.325 292.972, 538 299.020 C 521.024 303.834, 494.641 302.349, 480 295.754 C 458.720 286.169, 444.455 263.592, 440.035 232.500 C 439.423 228.195, 439.032 182.087, 439.020 112.750 L 439 0 398.500 0 L 358 0 358.009 106.750 M 731 184.864 L 731 369.728 735.250 370.221 C 737.587 370.492, 782.700 370.570, 835.500 370.393 C 888.300 370.216, 946.918 370.056, 965.763 370.036 L 1000.026 370 999.763 335.750 L 999.500 301.500 905.239 301.245 L 810.979 300.990 811.239 258.245 L 811.500 215.500 890.750 215.244 L 970 214.988 970 181.494 L 970 148 890.500 148 L 811 148 811 108 L 811 68 902 68 L 993 68 993 34 L 993 0 862 0 L 731 0 731 184.864 M 1054.667 0.667 C 1054.300 1.033, 1054 84.283, 1054 185.667 L 1054 370 1098.250 370.165 C 1122.588 370.256, 1159.150 370.241, 1179.500 370.132 C 1199.850 370.023, 1237.987 369.948, 1264.250 369.967 L 1312 370 1312 334.500 L 1312 299 1223 299 L 1134 299 1134 149.500 L 1134 0 1094.667 0 C 1073.033 0, 1055.033 0.300, 1054.667 0.667 M 80 107.549 L 80 149.097 133.250 148.781 C 184.488 148.476, 186.736 148.384, 192.748 146.338 C 211.572 139.930, 220.563 126.644, 220.383 105.500 C 220.276 92.853, 217.719 86.440, 209.579 78.397 C 197.703 66.663, 193.543 66.017, 129.750 66.008 L 80 66 80 107.549 M 80 257.973 L 80 303.104 138.250 302.740 C 201.721 302.343, 201.419 302.368, 213.328 296.334 C 229.131 288.326, 236.127 272.178, 233.217 250.429 C 230.594 230.822, 221.987 221.510, 201.169 215.757 C 193.863 213.739, 190.812 213.619, 136.750 213.240 L 80 212.842 80 257.973";
+
+const WORDMARK_VIEWBOX = "0 0 1330 390";
+
+// Approved lockup spacing (relative to the supplied artwork).
+const LOCKUP_W = 2196;
+const LOCKUP_H = 869;
+const WM_TX = 876;
+const WM_TY = 237;
+
+export type LogoTone = "light" | "dark";
+export type LogoVariant = "symbol" | "lockup";
+
+export function Logo({
+  size = 28,
+  tone = "light",
+  variant = "symbol",
+  className,
+  style,
+}: {
+  /** Rendered height in px (width follows the brand aspect ratio). */
+  size?: number;
+  tone?: LogoTone;
+  variant?: LogoVariant;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const fill = tone === "light" ? "#FFFFFF" : "#000000";
+
+  if (variant === "lockup") {
+    const width = Math.round(size * (LOCKUP_W / LOCKUP_H));
+    return (
+      <svg
+        width={width}
+        height={size}
+        viewBox={`0 0 ${LOCKUP_W} ${LOCKUP_H}`}
+        fill={fill}
+        fillRule="evenodd"
+        role="img"
+        aria-label="BUEL"
+        className={className}
+        style={style}
+      >
+        <title>BUEL</title>
+        <path d={SYMBOL_PATH} />
+        <g transform={`translate(${WM_TX} ${WM_TY})`}>
+          <path d={WORDMARK_PATH} />
+        </g>
+      </svg>
+    );
+  }
+
+  const width = Math.round(size * (693 / 869));
+  return (
+    <svg
+      width={width}
+      height={size}
+      viewBox={SYMBOL_VIEWBOX}
+      fill={fill}
+      fillRule="evenodd"
+      role="img"
+      aria-label="BUEL"
+      className={className}
+      style={style}
+    >
+      <title>BUEL</title>
+      <path d={SYMBOL_PATH} />
+    </svg>
+  );
+}

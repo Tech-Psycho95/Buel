@@ -1,0 +1,45 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# production
+build/
+
+# env & secrets — never commit real values
+.env
+.env.*
+!.env.example
+
+# local data (embedded PGlite database, demo captures, generated logos)
+.data/
+
+# tests & generated captures
+playwright-report/
+e2e-results/
+coverage/
+test-results/
+design-caps/
+
+# local tooling / agent workspaces (IDE + assistant state, attachments)
+.zcode/
+.zwork/
+
+# binary deliverables and recordings (kept out of the source repository)
+*.mp4
+*.webm
+demo-video/
+Sentisel-Release-Readiness-Audit.pdf
+Privy-Authentication-Migration-Final-Report.docx
+
+# misc
+*.log
+.DS_Store
+.neon
+.vercel
+tsconfig.tsbuildinfo
+__pycache__/
+*.pyc
