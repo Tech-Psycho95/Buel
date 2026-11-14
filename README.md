@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="public/brand/buel-logo.svg" alt="BUEL — Autonomous Market Intelligence" width="220" />
+</div>
+
 # BUEL
 
 **Autonomous market intelligence — evidence-first, adversarial, paper-trading only.**
