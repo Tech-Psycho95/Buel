@@ -49,14 +49,19 @@ describe.skipIf(!shouldRun)("live: Hyperliquid public API", () => {
   }, 180_000);
 });
 
-describe.skipIf(!shouldRun)("live: Anthropic API", () => {
-  it("generates an autopsy when ANTHROPIC_API_KEY is configured", async () => {
+describe.skipIf(!shouldRun || !process.env.XAI_API_KEY)("live: xAI Grok API", () => {
+  it("generates a grounded autopsy through Grok when XAI_API_KEY is configured", async () => {
     const { generateAutopsy } = await import("@/lib/forensics/autopsy");
     const { buildWalletReport } = await import("@/lib/forensics/report");
     const report = await buildWalletReport("0xc0ffee0000000000000000000000000000000002", {
       windowDays: 90,
     });
     const autopsy = await generateAutopsy(report);
+    // A real request must actually have produced this narrative: a silent fall
+    // back to the deterministic template means Grok was never reached or its
+    // output was rejected.
+    expect(autopsy.generatedBy, autopsy.validationNote).toBe("llm");
+    expect(autopsy.model).toBeTruthy();
     expect(autopsy.summary.length).toBe(3);
     expect(autopsy.findings.length).toBeGreaterThan(0);
     // Every cited evidence ID must resolve — even (especially) for LLM output.

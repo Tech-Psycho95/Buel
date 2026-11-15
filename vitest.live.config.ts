@@ -1,8 +1,8 @@
 import { defineConfig } from "vitest/config";
 import path from "node:path";
 
-// Live-suite: opt-in only (`npm run test:live`). Hits real Hyperliquid and
-// Anthropic endpoints so external availability never affects the core suite.
+// Live-suite: opt-in only (`npm run test:live`). Hits real Hyperliquid and xAI
+// endpoints so external availability never affects the core suite.
 export default defineConfig({
   test: {
     include: ["tests/live/**/*.test.ts"],

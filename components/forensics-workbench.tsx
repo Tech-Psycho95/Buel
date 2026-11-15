@@ -240,12 +240,12 @@ export function ForensicsWorkbench() {
                 title="The autopsy"
                 subtitle={
                   narrative.generatedBy === "llm"
-                    ? `AI narrative, strictly grounded in computed evidence${narrative.model ? ` · ${narrative.model}` : ""}`
+                    ? `Grok narrative, strictly grounded in computed evidence${narrative.model ? ` · ${narrative.model}` : ""}`
                     : "Deterministic narrative generated in code from the computed report"
                 }
                 right={
                   <Badge tone={narrative.generatedBy === "llm" ? "analyst" : "neutral"}>
-                    {narrative.generatedBy === "llm" ? "LLM · evidence-locked" : "Rules-based"}
+                    {narrative.generatedBy === "llm" ? "Grok · evidence-locked" : "Rules-based"}
                   </Badge>
                 }
               />
