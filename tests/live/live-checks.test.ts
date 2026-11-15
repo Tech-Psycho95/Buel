@@ -49,8 +49,8 @@ describe.skipIf(!shouldRun)("live: Hyperliquid public API", () => {
   }, 180_000);
 });
 
-describe.skipIf(!shouldRun || !process.env.XAI_API_KEY)("live: xAI Grok API", () => {
-  it("generates a grounded autopsy through Grok when XAI_API_KEY is configured", async () => {
+describe.skipIf(!shouldRun || !process.env.GROQ_API_KEY)("live: Groq API", () => {
+  it("generates a grounded autopsy through Groq when GROQ_API_KEY is configured", async () => {
     const { generateAutopsy } = await import("@/lib/forensics/autopsy");
     const { buildWalletReport } = await import("@/lib/forensics/report");
     const report = await buildWalletReport("0xc0ffee0000000000000000000000000000000002", {
@@ -58,7 +58,7 @@ describe.skipIf(!shouldRun || !process.env.XAI_API_KEY)("live: xAI Grok API", ()
     });
     const autopsy = await generateAutopsy(report);
     // A real request must actually have produced this narrative: a silent fall
-    // back to the deterministic template means Grok was never reached or its
+    // back to the deterministic template means Groq was never reached or its
     // output was rejected.
     expect(autopsy.generatedBy, autopsy.validationNote).toBe("llm");
     expect(autopsy.model).toBeTruthy();

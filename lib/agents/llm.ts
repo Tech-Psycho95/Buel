@@ -1,12 +1,12 @@
 import type { RawFill, RawFunding, RawLedgerUpdate } from "@/lib/market-data/types";
 
 /*
- * xAI Grok client — server-side only, used for narrative generation.
+ * GroqCloud client — server-side only, used for narrative generation.
  *
- * Grok is reached through xAI's OpenAI-compatible Chat Completions API
- * (https://api.x.ai/v1/chat/completions, `Authorization: Bearer <key>`), which
- * is why no provider SDK is needed: this module is the single place that talks
- * to it, and the key never leaves the server.
+ * Groq exposes an OpenAI-compatible Chat Completions API at
+ * https://api.groq.com/openai/v1/chat/completions with a Bearer key, which is
+ * why no provider SDK is needed: this module is the single place that talks to
+ * it, and the key never leaves the server.
  *
  * The model NEVER computes statistics: it receives deterministic, validated
  * evidence and may only rephrase it under strict constraints
@@ -14,19 +14,19 @@ import type { RawFill, RawFunding, RawLedgerUpdate } from "@/lib/market-data/typ
  * can never influence the Judge, the Quality Gate or any trade execution.
  */
 
-const XAI_URL = "https://api.x.ai/v1/chat/completions";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-/** Model id used unless XAI_MODEL overrides it. */
-export const DEFAULT_XAI_MODEL = "grok-4.7";
+/** Model id used unless GROQ_MODEL overrides it (GroqCloud production model). */
+export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 
 export function llmConfigured(): boolean {
-  return Boolean(process.env.XAI_API_KEY?.trim());
+  return Boolean(process.env.GROQ_API_KEY?.trim());
 }
 
 export function llmModel(): string {
-  // The model id is configuration, not code — pin another Grok model with
-  // XAI_MODEL (ids vary per account; see https://docs.x.ai).
-  return process.env.XAI_MODEL?.trim() || DEFAULT_XAI_MODEL;
+  // The model id is configuration, not code — pin another id from
+  // https://console.groq.com/docs/models with GROQ_MODEL.
+  return process.env.GROQ_MODEL?.trim() || DEFAULT_GROQ_MODEL;
 }
 
 export type LlmResult =
@@ -38,13 +38,13 @@ export async function llmComplete(
   user: string,
   opts?: { maxTokens?: number; timeoutMs?: number },
 ): Promise<LlmResult> {
-  const key = process.env.XAI_API_KEY?.trim();
-  if (!key) return { ok: false, error: "XAI_API_KEY not configured" };
+  const key = process.env.GROQ_API_KEY?.trim();
+  if (!key) return { ok: false, error: "GROQ_API_KEY not configured" };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts?.timeoutMs ?? 45_000);
   try {
-    const res = await fetch(XAI_URL, {
+    const res = await fetch(GROQ_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -66,7 +66,7 @@ export async function llmComplete(
     if (!res.ok) {
       // Status code only — never the provider's body, which can echo request
       // metadata. This string can end up in a user-facing validation note.
-      return { ok: false, error: `xAI HTTP ${res.status}` };
+      return { ok: false, error: `Groq HTTP ${res.status}` };
     }
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string | null } }>;

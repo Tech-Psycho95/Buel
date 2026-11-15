@@ -231,25 +231,25 @@ export async function generateAutopsy(report: WalletForensicsReport): Promise<Au
   if (!result.ok) {
     return {
       ...fallback,
-      validationNote: `Grok unavailable (${result.error}) — deterministic narrative used.`,
+      validationNote: `Groq unavailable (${result.error}) — deterministic narrative used.`,
     };
   }
 
   const jsonStart = result.text.indexOf("{");
   const jsonEnd = result.text.lastIndexOf("}");
   if (jsonStart < 0 || jsonEnd <= jsonStart) {
-    return { ...fallback, validationNote: "Grok returned non-JSON output — deterministic narrative used." };
+    return { ...fallback, validationNote: "Groq returned non-JSON output — deterministic narrative used." };
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(result.text.slice(jsonStart, jsonEnd + 1));
   } catch {
-    return { ...fallback, validationNote: "Grok JSON was malformed — deterministic narrative used." };
+    return { ...fallback, validationNote: "Groq JSON was malformed — deterministic narrative used." };
   }
 
   const schemaResult = AutopsySchema.safeParse(parsed);
   if (!schemaResult.success) {
-    return { ...fallback, validationNote: "Grok output failed schema validation — deterministic narrative used." };
+    return { ...fallback, validationNote: "Groq output failed schema validation — deterministic narrative used." };
   }
 
   const candidate: Autopsy = { ...schemaResult.data, generatedBy: "llm", model: result.model };
@@ -336,5 +336,5 @@ export function deterministicChatAnswer(report: WalletForensicsReport, question:
     );
     return `Post-Loss Size Escalation (descriptive statistics, not a psychological claim): ${e.join("; ")}. Baseline across all trades: ${fmtUsd(report.postLossEscalation.baselineAvgOpeningNotional)}.`;
   }
-  return `Deterministic mode: I can answer about fees, funding, deposits/withdrawals, win rate, coins, post-loss size escalation, or coverage from the stored report. Ask about one of those, or configure XAI_API_KEY for full natural-language answers. Net trading PnL is ${a.netTradingPnl}; coverage is ${report.completenessLabel}.`;
+  return `Deterministic mode: I can answer about fees, funding, deposits/withdrawals, win rate, coins, post-loss size escalation, or coverage from the stored report. Ask about one of those, or configure GROQ_API_KEY for full natural-language answers. Net trading PnL is ${a.netTradingPnl}; coverage is ${report.completenessLabel}.`;
 }

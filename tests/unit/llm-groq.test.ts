@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterAll, beforeAll } from "vitest";
-import { llmComplete, llmConfigured, llmModel, DEFAULT_XAI_MODEL } from "@/lib/agents/llm";
+import { llmComplete, llmConfigured, llmModel, DEFAULT_GROQ_MODEL } from "@/lib/agents/llm";
 import type { WalletForensicsReport } from "@/lib/forensics/report";
 
 /*
- * xAI Grok client contract:
+ * GroqCloud client contract:
  *  - no key → not configured, no network call at all;
- *  - the request is an OpenAI-compatible chat completion against api.x.ai with
- *    a Bearer key, the system prompt as a system message, XAI_MODEL honoured;
+ *  - the request is an OpenAI-compatible chat completion against
+ *    api.groq.com/openai/v1 with a Bearer key, the system prompt as a system
+ *    message, and GROQ_MODEL honoured;
  *  - failures degrade to { ok: false } and never leak the provider body.
  *
  * Autopsy-level fallback: ANY failure (missing key, HTTP error, non-JSON,
@@ -17,7 +18,7 @@ import type { WalletForensicsReport } from "@/lib/forensics/report";
 const ok = (body: unknown, status = 200) =>
   ({ ok: status >= 200 && status < 300, status, json: async () => body }) as unknown as Response;
 
-const completion = (content: string | null, model = "grok-4.7") => ({
+const completion = (content: string | null, model = "openai/gpt-oss-120b") => ({
   id: "chatcmpl-test",
   object: "chat.completion",
   model,
@@ -34,31 +35,31 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-describe("xAI client", () => {
-  it("is not configured without XAI_API_KEY and never calls the network", async () => {
-    vi.stubEnv("XAI_API_KEY", "");
+describe("Groq client", () => {
+  it("is not configured without GROQ_API_KEY and never calls the network", async () => {
+    vi.stubEnv("GROQ_API_KEY", "");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
     expect(llmConfigured()).toBe(false);
     const result = await llmComplete("sys", "user");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("XAI_API_KEY not configured");
+    if (!result.ok) expect(result.error).toContain("GROQ_API_KEY not configured");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("defaults to grok-4.7 and honours XAI_MODEL", () => {
-    vi.stubEnv("XAI_MODEL", "");
-    expect(DEFAULT_XAI_MODEL).toBe("grok-4.7");
-    expect(llmModel()).toBe("grok-4.7");
+  it("defaults to a GroqCloud production model and honours GROQ_MODEL", () => {
+    vi.stubEnv("GROQ_MODEL", "");
+    expect(DEFAULT_GROQ_MODEL).toBe("openai/gpt-oss-120b");
+    expect(llmModel()).toBe("openai/gpt-oss-120b");
 
-    vi.stubEnv("XAI_MODEL", "grok-4.7-fast");
-    expect(llmModel()).toBe("grok-4.7-fast");
+    vi.stubEnv("GROQ_MODEL", "llama-3.3-70b-versatile");
+    expect(llmModel()).toBe("llama-3.3-70b-versatile");
   });
 
-  it("posts an OpenAI-compatible chat completion to https://api.x.ai/v1", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
-    vi.stubEnv("XAI_MODEL", "");
+  it("posts an OpenAI-compatible chat completion to api.groq.com/openai/v1", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
+    vi.stubEnv("GROQ_MODEL", "");
     const fetchMock = vi.fn(async () => ok(completion("grounded narrative")));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -66,9 +67,9 @@ describe("xAI client", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://api.x.ai/v1/chat/completions");
+    expect(url).toBe("https://api.groq.com/openai/v1/chat/completions");
     expect(init.method).toBe("POST");
-    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer test-key");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer gsk-test-key");
     expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
 
     const body = JSON.parse(String(init.body)) as {
@@ -76,33 +77,33 @@ describe("xAI client", () => {
       max_tokens: number;
       messages: Array<{ role: string; content: string }>;
     };
-    expect(body.model).toBe("grok-4.7");
+    expect(body.model).toBe("openai/gpt-oss-120b");
     expect(body.max_tokens).toBe(512);
     expect(body.messages).toEqual([
       { role: "system", content: "SYSTEM PROMPT" },
       { role: "user", content: "USER PAYLOAD" },
     ]);
 
-    expect(result).toEqual({ ok: true, text: "grounded narrative", model: "grok-4.7" });
+    expect(result).toEqual({ ok: true, text: "grounded narrative", model: "openai/gpt-oss-120b" });
   });
 
   it("reports the provider status without leaking the response body", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
     const fetchMock = vi.fn(async () =>
-      ({ ok: false, status: 429, json: async () => ({ error: "key sk-live-should-not-surface" }) }) as unknown as Response,
+      ({ ok: false, status: 429, json: async () => ({ error: "key gsk-live-should-not-surface" }) }) as unknown as Response,
     );
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await llmComplete("sys", "user");
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toBe("xAI HTTP 429");
-      expect(result.error).not.toContain("sk-live");
+      expect(result.error).toBe("Groq HTTP 429");
+      expect(result.error).not.toContain("gsk-live");
     }
   });
 
   it("treats an empty or refused completion as a failure", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
 
     vi.stubGlobal("fetch", vi.fn(async () => ok({ choices: [] })));
     const empty = await llmComplete("sys", "user");
@@ -116,7 +117,7 @@ describe("xAI client", () => {
   });
 
   it("returns a failure instead of throwing when the request errors", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
     vi.stubGlobal("fetch", vi.fn(async () => {
       throw new Error("network down");
     }));
@@ -127,7 +128,7 @@ describe("xAI client", () => {
   });
 
   it("aborts on timeout and reports it as a timeout", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
     vi.stubGlobal("fetch", vi.fn((_url: string, init: RequestInit) =>
       new Promise<Response>((_resolve, reject) => {
         init.signal?.addEventListener("abort", () => {
@@ -142,7 +143,7 @@ describe("xAI client", () => {
   });
 });
 
-describe("Grok narrative fallback (Agent Council / forensics)", () => {
+describe("Groq narrative fallback (Agent Council / forensics)", () => {
   let report: WalletForensicsReport;
 
   beforeAll(async () => {
@@ -176,8 +177,8 @@ describe("Grok narrative fallback (Agent Council / forensics)", () => {
     ...overrides,
   });
 
-  it("uses the deterministic narrative when XAI_API_KEY is missing", async () => {
-    vi.stubEnv("XAI_API_KEY", "");
+  it("uses the deterministic narrative when GROQ_API_KEY is missing", async () => {
+    vi.stubEnv("GROQ_API_KEY", "");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { generateAutopsy } = await import("@/lib/forensics/autopsy");
@@ -185,22 +186,22 @@ describe("Grok narrative fallback (Agent Council / forensics)", () => {
     const autopsy = await generateAutopsy(report);
     expect(autopsy.generatedBy).toBe("template");
     expect(autopsy.validationNote).toContain("Deterministic template");
-    expect(autopsy.validationNote).not.toContain("Grok");
+    expect(autopsy.validationNote).not.toContain("Groq");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("falls back when the provider errors", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
     vi.stubGlobal("fetch", vi.fn(async () => ok({}, 503)));
     const { generateAutopsy } = await import("@/lib/forensics/autopsy");
 
     const autopsy = await generateAutopsy(report);
     expect(autopsy.generatedBy).toBe("template");
-    expect(autopsy.validationNote).toContain("Grok unavailable (xAI HTTP 503)");
+    expect(autopsy.validationNote).toContain("Groq unavailable (Groq HTTP 503)");
   });
 
   it("falls back on non-JSON output", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
     vi.stubGlobal("fetch", vi.fn(async () => ok(completion("I cannot help with that."))));
     const { generateAutopsy } = await import("@/lib/forensics/autopsy");
 
@@ -210,7 +211,7 @@ describe("Grok narrative fallback (Agent Council / forensics)", () => {
   });
 
   it("falls back when the JSON violates the schema", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
     vi.stubGlobal("fetch", vi.fn(async () => ok(completion(JSON.stringify({ summary: ["only one"] })))));
     const { generateAutopsy } = await import("@/lib/forensics/autopsy");
 
@@ -220,7 +221,7 @@ describe("Grok narrative fallback (Agent Council / forensics)", () => {
   });
 
   it("falls back when the narrative invents a number", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
     const narrative = groundedNarrative({
       summary: [
         "Fees and funding are reported separately from trading results.",
@@ -236,19 +237,19 @@ describe("Grok narrative fallback (Agent Council / forensics)", () => {
     expect(autopsy.validationNote).toContain("number not present in the evidence");
   });
 
-  it("accepts a grounded narrative and records the Grok model", async () => {
-    vi.stubEnv("XAI_API_KEY", "test-key");
-    vi.stubEnv("XAI_MODEL", "");
+  it("accepts a grounded narrative and records the Groq model", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
+    vi.stubEnv("GROQ_MODEL", "");
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => ok(completion(JSON.stringify(groundedNarrative()), "grok-4.7"))),
+      vi.fn(async () => ok(completion(JSON.stringify(groundedNarrative()), "openai/gpt-oss-120b"))),
     );
     const { generateAutopsy } = await import("@/lib/forensics/autopsy");
 
     const autopsy = await generateAutopsy(report);
     expect(autopsy.validationNote).toBeUndefined();
     expect(autopsy.generatedBy).toBe("llm");
-    expect(autopsy.model).toBe("grok-4.7");
+    expect(autopsy.model).toBe("openai/gpt-oss-120b");
     expect(autopsy.summary).toHaveLength(3);
     // Narrative is annotations only: the report itself is untouched.
     expect(report.accounting.netTradingPnl).toBeTruthy();
