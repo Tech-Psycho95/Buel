@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# .vercelignore — keep local secrets, data and artifacts out of CLI deployments.
+#
+# Vercel does NOT inherit .gitignore for `vercel deploy`: anything not listed
+# here is uploaded with the deployment source, even if Git ignores it. An
+# earlier deployment of this project shipped .env.vercel this way. Required
+# source, migrations, assets and the env template are deliberately NOT excluded.
+# ---------------------------------------------------------------------------
+
+# Real environment files (never upload). The template stays.
+.env
+.env*
+!.env.example
+
+# Local runtime data and project link state
+.data/
+.neon
+.vercel/
+
+# Dependencies and build output (rebuilt by Vercel)
+node_modules/
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# Tests, captures and coverage
+test-results/
+playwright-report/
+e2e-results/
+design-caps/
+coverage/
+
+# Editor / tool working directories
+.zwork/
+.zcode/
+
+# Recordings and local deliverables (reports may contain private data)
+*.mp4
+*.webm
+*.log
+GitHub-Publish-Report.md
+BUEL-Engineering-Work-Report.docx
