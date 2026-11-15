@@ -17,21 +17,29 @@ import type { WalletForensicsReport } from "./report";
  *     it only annotates deterministic output.
  */
 
+/*
+ * Shape bounds. These are presentation limits, not safety limits: safety is
+ * enforced afterwards by the evidence-ID and numeric-token validators, which are
+ * untouched. The bounds tolerate a general model writing slightly more than it
+ * was asked for (an extra sentence, a longer body) because rejecting an
+ * otherwise grounded narrative discards the whole answer — the prompt asks for
+ * 3 summary strings, 1–3 findings and bodies of at most 600 characters.
+ */
 export const AutopsySchema = z.object({
-  summary: z.array(z.string()).min(3).max(3),
+  summary: z.array(z.string().min(1).max(600)).min(1).max(5),
   findings: z
     .array(
       z.object({
-        title: z.string().min(3).max(160),
-        body: z.string().min(10).max(700),
-        evidenceIds: z.array(z.string()).max(6),
+        title: z.string().min(3).max(200),
+        body: z.string().min(10).max(1200),
+        evidenceIds: z.array(z.string()).max(12),
       }),
     )
     .min(1)
-    .max(3),
+    .max(4),
   observation: z.object({
-    body: z.string().min(10).max(700),
-    evidenceIds: z.array(z.string()).max(6),
+    body: z.string().min(10).max(1200),
+    evidenceIds: z.array(z.string()).max(12),
   }),
 });
 
@@ -162,7 +170,10 @@ HARD RULES:
 - Do not make claims about the trader's psychological state. The post-loss metric is a descriptive statistical observation.
 - Output STRICT JSON only, no markdown fences, matching this shape:
 {"summary":["...","...","..."],"findings":[{"title":"...","body":"...","evidenceIds":["ev:..."]},{"title":"...","body":"...","evidenceIds":["ev:..."]},{"title":"...","body":"...","evidenceIds":["ev:..."]}],"observation":{"body":"...","evidenceIds":["ev:..."]}}
-- summary: exactly 3 sentences. findings: 1 to 3 items. The observation is ONE thing to try differently, framed as an observation ("You might watch..."), never an instruction to trade.`;
+- summary MUST be a JSON array of exactly 3 separate strings — one sentence each. Never return one long string, and never put all three sentences inside a single array element.
+- findings MUST be a JSON array of 1 to 3 objects; observation MUST be a single object.
+- evidenceIds MUST be a JSON array of evidence-id strings on every finding AND on the observation. Use [] when none apply — never omit the key.
+- Keep title <= 100 characters and each body <= 600 characters. The observation is ONE thing to try differently, framed as an observation ("You might watch..."), never an instruction to trade.`;
 
 /** Extract number-like tokens (including $ and % forms) from text. */
 function numericTokens(text: string): string[] {
@@ -218,6 +229,74 @@ function validateEvidenceIds(autopsy: Autopsy, report: WalletForensicsReport): s
   return null;
 }
 
+/**
+ * Split a multi-sentence string into separate sentences (max 5).
+ * Used only when a provider returns the summary as one string.
+ */
+function splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+/**
+ * Normalise a provider's near-miss SHAPE before validation.
+ *
+ * Groq (like any general model) sometimes answers the prose instruction instead
+ * of the JSON shape: the summary arrives as one string holding three sentences,
+ * a single finding arrives unwrapped, or `evidenceIds` is omitted. Those are
+ * compatibility problems, not content problems, so the candidate is repaired
+ * here — by splitting, wrapping, trimming or defaulting to an empty array.
+ *
+ * Nothing is invented: no text is added, no number is altered, no evidence ID is
+ * fabricated. Types and required keys stay enforced by AutopsySchema, and both
+ * semantic guards (evidence IDs, numeric tokens) run on the normalised text
+ * exactly as before.
+ */
+export function normalizeAutopsyCandidate(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const obj = raw as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...obj };
+
+  const summary = obj.summary;
+  if (typeof summary === "string") {
+    out.summary = splitSentences(summary);
+  } else if (Array.isArray(summary)) {
+    out.summary = summary
+      .map((s) => (typeof s === "string" ? s.trim() : s))
+      .filter((s) => !(typeof s === "string" && s.length === 0));
+  }
+
+  const normaliseFinding = (value: unknown): unknown => {
+    if (!value || typeof value !== "object") return value;
+    const f = { ...(value as Record<string, unknown>) };
+    if (typeof f.title !== "string" && typeof f.heading === "string") f.title = f.heading;
+    if (typeof f.body !== "string" && typeof f.text === "string") f.body = f.text;
+    if (!Array.isArray(f.evidenceIds)) f.evidenceIds = [];
+    return f;
+  };
+
+  const findings = obj.findings;
+  if (Array.isArray(findings)) {
+    out.findings = findings.map(normaliseFinding);
+  } else if (findings && typeof findings === "object") {
+    out.findings = [normaliseFinding(findings)];
+  }
+
+  const observation = obj.observation;
+  if (typeof observation === "string") {
+    out.observation = { body: observation.trim(), evidenceIds: [] };
+  } else if (observation && typeof observation === "object") {
+    const o = { ...(observation as Record<string, unknown>) };
+    if (!Array.isArray(o.evidenceIds)) o.evidenceIds = [];
+    out.observation = o;
+  }
+
+  return out;
+}
+
 export async function generateAutopsy(report: WalletForensicsReport): Promise<Autopsy> {
   const fallback = templateAutopsy(report);
   if (!llmConfigured()) return fallback;
@@ -247,9 +326,16 @@ export async function generateAutopsy(report: WalletForensicsReport): Promise<Au
     return { ...fallback, validationNote: "Groq JSON was malformed — deterministic narrative used." };
   }
 
-  const schemaResult = AutopsySchema.safeParse(parsed);
+  const schemaResult = AutopsySchema.safeParse(normalizeAutopsyCandidate(parsed));
   if (!schemaResult.success) {
-    return { ...fallback, validationNote: "Groq output failed schema validation — deterministic narrative used." };
+    const issue = schemaResult.error.issues[0];
+    const where = issue && issue.path.length > 0 ? issue.path.join(".") : "(root)";
+    // Server-side only: the field and the rule — never the model's text.
+    console.warn(`[autopsy] Groq output rejected by schema at ${where}: ${issue?.code ?? "unknown"}`);
+    return {
+      ...fallback,
+      validationNote: `Groq output failed schema validation (${where}: ${issue?.code ?? "unknown"}) — deterministic narrative used.`,
+    };
   }
 
   const candidate: Autopsy = { ...schemaResult.data, generatedBy: "llm", model: result.model };

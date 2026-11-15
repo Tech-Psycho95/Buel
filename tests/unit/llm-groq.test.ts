@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterAll, beforeAll } from "vitest";
 import { llmComplete, llmConfigured, llmModel, DEFAULT_GROQ_MODEL } from "@/lib/agents/llm";
+import { normalizeAutopsyCandidate } from "@/lib/forensics/autopsy";
 import type { WalletForensicsReport } from "@/lib/forensics/report";
 
 /*
@@ -253,5 +254,90 @@ describe("Groq narrative fallback (Agent Council / forensics)", () => {
     expect(autopsy.summary).toHaveLength(3);
     // Narrative is annotations only: the report itself is untouched.
     expect(report.accounting.netTradingPnl).toBeTruthy();
+  });
+});
+
+describe("Groq response shape compatibility", () => {
+  let report: WalletForensicsReport;
+
+  beforeAll(async () => {
+    process.env.SENTISEL_DEMO_DATA = "1";
+    const { buildWalletReport } = await import("@/lib/forensics/report");
+    report = await buildWalletReport("0xc0ffee0000000000000000000000000000000002", { windowDays: 90 });
+  });
+
+  afterAll(() => {
+    delete process.env.SENTISEL_DEMO_DATA;
+  });
+
+  it("splits a single-string summary into separate entries", () => {
+    const out = normalizeAutopsyCandidate({
+      summary: "One sentence opens the autopsy. A second sentence follows it. A third sentence closes.",
+      findings: [{ title: "Title", body: "Body text long enough.", evidenceIds: [] }],
+      observation: { body: "Observation body here.", evidenceIds: [] },
+    }) as { summary: string[] };
+    expect(out.summary).toHaveLength(3);
+    expect(out.summary[0]).toContain("One sentence");
+  });
+
+  it("wraps a lone finding object and defaults missing evidenceIds", () => {
+    const out = normalizeAutopsyCandidate({
+      summary: ["Only one line."],
+      findings: { title: "A single finding", body: "Body long enough here." },
+      observation: "Observation delivered as a bare string.",
+    }) as {
+      findings: Array<{ evidenceIds: string[] }>;
+      observation: { body: string; evidenceIds: string[] };
+    };
+    expect(out.findings).toHaveLength(1);
+    expect(out.findings[0].evidenceIds).toEqual([]);
+    expect(out.observation.body).toContain("bare string");
+    expect(out.observation.evidenceIds).toEqual([]);
+  });
+
+  it("accepts the response shape that production rejected", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
+    vi.stubEnv("GROQ_MODEL", "");
+
+    // Representative Groq answer: summary as ONE string of three sentences, a
+    // body well over the old 700-character cap, no digits anywhere (so the
+    // numeric guard is satisfied), and observation as a bare string.
+    const longBody = "Cash flows are reported separately and are never counted as performance. "
+      .repeat(12)
+      .trim();
+    expect(longBody.length).toBeGreaterThan(700);
+
+    const providerAnswer = {
+      summary:
+        "Fees and funding are reported separately from trading results. Coverage and completeness are disclosed rather than assumed. Only observed behaviour is described, never a forecast.",
+      findings: [{ title: "Accounting separation", body: longBody, evidenceIds: [] }],
+      observation: "The report describes past trading behaviour only and makes no claim about future outcomes.",
+    };
+
+    vi.stubGlobal("fetch", vi.fn(async () => ok(completion(JSON.stringify(providerAnswer)))));
+    const { generateAutopsy } = await import("@/lib/forensics/autopsy");
+
+    const autopsy = await generateAutopsy(report);
+    expect(autopsy.validationNote).toBeUndefined();
+    expect(autopsy.generatedBy).toBe("llm");
+    expect(autopsy.summary).toHaveLength(3);
+    expect(autopsy.findings[0].body.length).toBeGreaterThan(700);
+    expect(autopsy.observation.body).toContain("past trading behaviour");
+  });
+
+  it("names the failing field when a payload is still unusable", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-key");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ok(completion(JSON.stringify({ summary: 42, findings: [], observation: {} })))),
+    );
+    const { generateAutopsy } = await import("@/lib/forensics/autopsy");
+
+    const autopsy = await generateAutopsy(report);
+    expect(autopsy.generatedBy).toBe("template");
+    expect(autopsy.validationNote).toContain("summary");
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
