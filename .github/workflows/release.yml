@@ -1,0 +1,94 @@
+name: Release desktop builds
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: "--bundles nsis,msi"
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin --bundles dmg"
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin --bundles dmg"
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust build cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - name: Install desktop frontend (static shell — no web build required)
+        working-directory: desktop/ui
+        shell: bash
+        run: echo "static assets only"
+
+      - name: Build Tauri bundles
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          tauriScript: npx --yes @tauri-apps/cli@^2
+          args: ${{ matrix.args }}
+
+      - name: Rename artifacts to stable distribution names
+        shell: bash
+        working-directory: desktop/src-tauri/target
+        run: |
+          mkdir -p renamed
+          # Windows
+          find . -path "*bundle/nsis/*setup.exe" -exec cp {} renamed/BUEL-Windows-x64-setup.exe \;
+          find . -path "*bundle/msi/*.msi" -exec cp {} renamed/BUEL-Windows-x64.msi \;
+          # macOS (per-target folders)
+          find . -path "*aarch64-apple-darwin*release/bundle/dmg/*.dmg" -exec cp {} renamed/BUEL-macOS-AppleSilicon.dmg \;
+          find . -path "*x86_64-apple-darwin*release/bundle/dmg/*.dmg" -exec cp {} renamed/BUEL-macOS-Intel.dmg \;
+          ls -la renamed
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BUEL-${{ matrix.platform }}
+          path: desktop/src-tauri/target/renamed/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish release with installers
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/BUEL-Windows-x64-setup.exe
+            artifacts/BUEL-Windows-x64.msi
+            artifacts/BUEL-macOS-AppleSilicon.dmg
+            artifacts/BUEL-macOS-Intel.dmg

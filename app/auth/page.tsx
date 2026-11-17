@@ -3,7 +3,22 @@
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { PrivyProvider, useLogin, usePrivy, getIdentityToken } from "@privy-io/react-auth";
+import {
+  PrivyProvider,
+  useLogin,
+  useLoginWithOAuth,
+  usePrivy,
+  getIdentityToken,
+} from "@privy-io/react-auth";
+
+/**
+ * Desktop shell detection. Inside the Tauri WebView, OAuth popups do not
+ * survive: Google sign-in therefore uses Privy's OAuth REDIRECT flow
+ * (useLoginWithOAuth / window.assign), which completes entirely inside the
+ * app window. The web experience keeps the standard modal flow unchanged.
+ */
+const IS_DESKTOP =
+  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 import { AuthShell, AuthField, FormError, SubmitButton } from "@/components/auth-form";
 import { Badge } from "@/components/ui";
 import { decideAuthLanding } from "@/lib/auth/auth-landing";
@@ -27,10 +42,18 @@ function AuthPrivyInner() {
   const params = useSearchParams();
   const privy = usePrivy();
   const { login } = useLogin({
-    onComplete: (user) => {
-      void bridge(user.user.id);
+    onComplete: (params) => {
+      void bridge(params.user?.id ?? "login");
     },
     onError: (e) => setError(typeof e === "string" ? e : "Privy login failed. Please try again."),
+  });
+  // OAuth redirect flow — used on the desktop shell (see IS_DESKTOP). The
+  // onComplete callback runs after the redirect back into the app window.
+  const { initOAuth } = useLoginWithOAuth({
+    onComplete: (params) => {
+      void bridge(params.user?.id ?? "oauth-redirect");
+    },
+    onError: (e) => setError(typeof e === "string" ? e : "Google sign-in failed. Please try again."),
   });
   const { getAccessToken, logout, ready } = privy;
 
@@ -245,18 +268,32 @@ function AuthPrivyInner() {
           {!ready ? (
             <p className="text-sm text-ink-dim">Connecting to Privy…</p>
           ) : (
-            <SubmitButton
-              loading={bridging}
-              onClick={() => {
-                setError(null);
-                // An explicit sign-in starts a NEW session: the post-logout
-                // cleanup must stand down from here on.
-                signInStarted.current = true;
-                login();
-              }}
-            >
-              Sign in to BUEL
-            </SubmitButton>
+            <div className="space-y-3">
+              {IS_DESKTOP && (
+                <SubmitButton
+                  loading={bridging}
+                  onClick={() => {
+                    setError(null);
+                    signInStarted.current = true;
+                    initOAuth({ provider: "google" }).catch(() =>
+                      setError("Google sign-in could not start. Please try again."),
+                    );
+                  }}
+                >
+                  Continue with Google
+                </SubmitButton>
+              )}
+              <SubmitButton
+                loading={bridging}
+                onClick={() => {
+                  setError(null);
+                  signInStarted.current = true;
+                  login();
+                }}
+              >
+                {IS_DESKTOP ? "Continue with email or passkey" : "Sign in to BUEL"}
+              </SubmitButton>
+            </div>
           )}
           <p className="text-[11px] leading-relaxed text-ink-faint">
             Opens the Privy authentication modal: email code, Google, wallet or passkey —
@@ -305,7 +342,9 @@ function PrivyLoginFlow() {
           accentColor: "#3fe1ff",
           logo: "/buel-mark.svg",
         },
-        loginMethods: ["email", "google", "wallet", "passkey"],
+        loginMethods: IS_DESKTOP
+          ? ["email", "passkey", "wallet"]
+          : ["email", "google", "wallet", "passkey"],
         embeddedWallets: {
           // Per directive: never create embedded wallets automatically.
           ethereum: { createOnLogin: "off" as const },

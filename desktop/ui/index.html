@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>BUEL</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; height: 100%; background: #0b0e13; color: #f0f4f8;
+      font-family: "Segoe UI", system-ui, sans-serif; }
+    .wrap { height: 100%; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 26px; text-align: center; }
+    .dot { width: 8px; height: 8px; background: #17191d; box-shadow: 0 0 0 0; display: inline-block; }
+    .grid { display: grid; grid-template-columns: repeat(5, 26px); grid-auto-rows: 26px; gap: 6px; }
+    .cell { background: #1a1e26; }
+    .cell.on { background: #f0f4f8; }
+    .status { font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: #9ba3ad; }
+    .status.err { color: #e0b458; }
+    .brand { font-size: 44px; font-weight: 700; letter-spacing: 0.06em; }
+    .url { font-size: 13px; color: #5a6472; font-family: Consolas, monospace; }
+    button { background: #37dccf22; color: #bfeee9; border: 1px solid #37dccf55;
+      border-radius: 10px; padding: 10px 26px; font-size: 14px; cursor: pointer; }
+    button:hover { background: #37dccf35; }
+    .hidden { display: none; }
+    .bar { width: 220px; height: 2px; background: #1a1e26; overflow: hidden; }
+    .bar span { display: block; height: 100%; width: 40%; background: #37dccf;
+      animation: sweep 1.4s ease-in-out infinite; }
+    @keyframes sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(320%); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">BUEL</div>
+    <div class="grid" id="mark"></div>
+    <div class="bar" id="loader"><span></span></div>
+    <div class="status" id="status">Connecting to BUEL…</div>
+    <button id="retry" class="hidden" onclick="go()">Retry connection</button>
+    <div class="url">buel-app.vercel.app · an internet connection is required</div>
+  </div>
+  <script>
+    // Pixelated B mark — same geometry as the official logo
+    const RECTS = [[0,279,143,83],[0,506,143,81],[0,732,143,137],[14,1,129,142],[143,143,143,80],
+      [143,238,143,41],[143,362,59,144],[143,587,143,145],[202,298,84,64],[202,506,84,81],
+      [286,1,266,142],[286,362,266,144],[286,732,266,137],[552,143,141,219],[552,506,141,226]];
+    const SW = 693, SH = 869, SIZE = 190;
+    const s = SIZE / SH, grid = document.getElementById("mark");
+    grid.style.gridTemplateColumns = `repeat(${Math.ceil(SW * s / 26)}, 26px)`;
+    for (const [x, y, w, h] of RECTS) {
+      for (let gy = Math.floor(y * s / 26); gy < Math.ceil((y + h * s) / 26); gy++) {
+        for (let gx = Math.floor(x * s / 26); gx < Math.ceil((x + w * s) / 26); gx++) {
+          const c = document.createElement("div");
+          c.className = "cell on";
+          c.style.gridRow = gy + 1; c.style.gridColumn = gx + 1;
+          grid.appendChild(c);
+        }
+      }
+    }
+    const APP = "https://buel-app.vercel.app";
+    const status = document.getElementById("status");
+    const loader = document.getElementById("loader");
+    const retry = document.getElementById("retry");
+    let stopped = false;
+    async function go() {
+      stopped = false;
+      retry.classList.add("hidden");
+      loader.classList.remove("hidden");
+      status.className = "status"; status.textContent = "Connecting to BUEL…";
+      try {
+        await fetch(APP + "/", { mode: "no-cors", cache: "no-store" });
+        if (!stopped) { status.textContent = "Opening your workspace…"; setTimeout(() => location.replace(APP + "/"), 400); }
+      } catch (e) {
+        if (stopped) return;
+        loader.classList.add("hidden");
+        status.className = "status err";
+        status.textContent = "You are offline. Reconnect to use BUEL.";
+        retry.classList.remove("hidden");
+      }
+    }
+    retry.addEventListener("click", go);
+    setInterval(() => { if (stopped) return; }, 100000);
+    window.addEventListener("beforeunload", () => { stopped = true; });
+    go();
+  </script>
+</body>
+</html>

@@ -18,6 +18,17 @@ export const brand = {
   productionUrl: "https://buel-app.vercel.app",
   /** Legacy production URL — permanently redirected to productionUrl (see next.config.ts). */
   legacyProductionUrl: "https://sentisel.vercel.app",
+  /** Desktop (Tauri) application distribution. */
+  desktop: {
+    version: "1.0.0",
+    repo: "https://github.com/Tech-Psycho95/Buel",
+    releasesUrl: "https://github.com/Tech-Psycho95/Buel/releases",
+    latestReleaseUrl: "https://github.com/Tech-Psycho95/Buel/releases/latest",
+    windowsSetup: "https://github.com/Tech-Psycho95/Buel/releases/latest/download/BUEL-Windows-x64-setup.exe",
+    windowsMsi: "https://github.com/Tech-Psycho95/Buel/releases/latest/download/BUEL-Windows-x64.msi",
+    macAppleSilicon: "https://github.com/Tech-Psycho95/Buel/releases/latest/download/BUEL-macOS-AppleSilicon.dmg",
+    macIntel: "https://github.com/Tech-Psycho95/Buel/releases/latest/download/BUEL-macOS-Intel.dmg",
+  },
   /** Public asset paths (all flat monochrome, transparent backgrounds). */
   assets: {
     symbol: "/buel-symbol.svg",
