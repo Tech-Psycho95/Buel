@@ -16,10 +16,13 @@ jobs:
         include:
           - platform: windows-latest
             args: "--bundles nsis,msi"
+            artifactName: BUEL-Windows
           - platform: macos-latest
             args: "--target aarch64-apple-darwin --bundles dmg"
+            artifactName: BUEL-macOS-AppleSilicon
           - platform: macos-latest
             args: "--target x86_64-apple-darwin --bundles dmg"
+            artifactName: BUEL-macOS-Intel
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -68,7 +71,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BUEL-${{ matrix.platform }}
+          name: ${{ matrix.artifactName }}
           path: desktop/src-tauri/target/renamed/*
           if-no-files-found: error
 
