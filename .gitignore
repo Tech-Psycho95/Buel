@@ -43,3 +43,7 @@ Privy-Authentication-Migration-Final-Report.docx
 tsconfig.tsbuildinfo
 __pycache__/
 *.pyc
+
+# Tauri build output
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
