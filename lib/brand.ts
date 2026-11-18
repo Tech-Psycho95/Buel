@@ -28,6 +28,8 @@ export const brand = {
     windowsMsi: "https://github.com/Tech-Psycho95/Buel/releases/latest/download/BUEL-Windows-x64.msi",
     macAppleSilicon: "https://github.com/Tech-Psycho95/Buel/releases/latest/download/BUEL-macOS-AppleSilicon.dmg",
     macIntel: "https://github.com/Tech-Psycho95/Buel/releases/latest/download/BUEL-macOS-Intel.dmg",
+    checksums: "https://github.com/Tech-Psycho95/Buel/releases/latest/download/SHA256SUMS.txt",
+    release: "https://github.com/Tech-Psycho95/Buel/releases/tag/v1.0.0",
   },
   /** Public asset paths (all flat monochrome, transparent backgrounds). */
   assets: {

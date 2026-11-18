@@ -14,7 +14,12 @@ const DOWNLOADS = [
   {
     platform: "Windows",
     detail: "Windows 10 / 11 · 64-bit",
-    primary: { label: "Download for Windows (.exe)", url: brand.desktop.windowsSetup },
+    primary: {
+      label: "Download for Windows (.exe)",
+      url: brand.desktop.windowsSetup,
+      size: "1.9 MB",
+      sha256: "c4bcaab3c633386c26b7e373a5f916e741d40e89c56711c1b8a2143bd1ab177a",
+    },
     secondary: { label: "MSI installer", url: brand.desktop.windowsMsi },
     steps: [
       "Run the downloaded BUEL setup file.",
@@ -25,7 +30,12 @@ const DOWNLOADS = [
   {
     platform: "macOS",
     detail: "Apple Silicon (M1–M4) and Intel Macs · macOS 12+",
-    primary: { label: "Download for Apple Silicon (.dmg)", url: brand.desktop.macAppleSilicon },
+    primary: {
+      label: "Download for Apple Silicon (.dmg)",
+      url: brand.desktop.macAppleSilicon,
+      size: "2.9 MB",
+      sha256: "74c3f5e6fd544e130c6e48225d6d907af207cba8ec885db1da427aa85aacb981",
+    },
     secondary: { label: "Download for Intel Mac (.dmg)", url: brand.desktop.macIntel },
     steps: [
       "Open the downloaded .dmg and drag BUEL into Applications.",
@@ -80,6 +90,14 @@ export default function DownloadPage() {
               <a href={d.secondary.url} className="mt-2 block text-center text-xs text-ink-dim hover:text-ink">
                 {d.secondary.label}
               </a>
+              <p className="mt-3 text-[10px] text-ink-faint">
+                {d.primary.size} · SHA-256{" "}
+                <span className="font-mono">{d.primary.sha256.slice(0, 24)}…</span>
+                {" "}
+                <a href={brand.desktop.checksums} className="text-accent/80 hover:text-accent hover:underline">
+                  all checksums
+                </a>
+              </p>
               <ol className="mt-5 space-y-1.5 text-xs leading-relaxed text-ink-dim">
                 {d.steps.map((s) => (
                   <li key={s} className="flex gap-2">
@@ -102,7 +120,11 @@ export default function DownloadPage() {
             <li>• Offline detection with a retry connection screen.</li>
           </ul>
           <p className="mt-4">
-            Release history:{" "}
+            Verify your download with{" "}
+            <a href={brand.desktop.checksums} className="text-accent hover:underline">
+              SHA256SUMS.txt
+            </a>{" "}
+            · Release history:{" "}
             <a href={brand.desktop.releasesUrl} className="text-accent hover:underline">
               github.com/Tech-Psycho95/Buel/releases
             </a>
