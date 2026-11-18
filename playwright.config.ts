@@ -30,6 +30,10 @@ export default defineConfig({
         env: {
           SENTISEL_DEMO_DATA: "1",
           SENTISEL_PG_MEMORY: "0",
+          // Empty DATABASE_URL -> embedded PGlite: e2e runs are deterministic
+          // and never depend on the Neon network connection (which flakes with
+          // ETIMEDOUT mid-run). Production behavior is unaffected.
+          DATABASE_URL: "",
           // Enables the DEV-ONLY Privy test-session minter + fallback verifier
           // (hard-disabled in production builds regardless of this value).
           SENTISEL_TEST_SECRET: "e2e-test-secret",

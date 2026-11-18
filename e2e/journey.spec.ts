@@ -129,7 +129,8 @@ test("complete user journey", async ({ page }) => {
   await expect(page.getByText("Username", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /change username/i })).toBeVisible();
   await page.getByRole("button", { name: /sign out of this device/i }).click();
-  await page.waitForURL("**/");
+  // Sign-out lands on /auth (the loggedOut flag is consumed and stripped there)
+  await page.waitForURL("**/auth**");
 
   // ---------- Login again (Privy re-bridge → SAME internal user) ----------
   const again = await privyTestSession(page.request, email);

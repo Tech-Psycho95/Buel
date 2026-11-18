@@ -89,6 +89,9 @@ export default function LandingPage() {
         </Link>
 
         <nav className="hidden justify-self-center items-center gap-1 rounded-full border border-line-strong bg-surface/70 py-1.5 px-1 text-[13px] text-ink-dim shadow-[0_18px_50px_-20px_rgba(0,0,0,0.85)] backdrop-blur-xl md:flex">
+          <Link href="/download" className="rounded-full px-2.5 py-1.5 transition-colors hover:bg-surface-3 hover:text-ink lg:px-3">
+            Download
+          </Link>
           <a href="#pipeline" className="rounded-full px-2.5 py-1.5 transition-colors hover:bg-surface-3 hover:text-ink lg:px-3">
             Pipeline
           </a>
@@ -107,6 +110,9 @@ export default function LandingPage() {
         </nav>
 
         <div className="flex items-center gap-2.5 justify-self-end">
+          <Link href="/download" className="whitespace-nowrap px-2 py-1.5 text-[13px] text-ink-dim transition-colors hover:text-ink md:hidden">
+            Download
+          </Link>
           <Link href="/auth" className="hidden whitespace-nowrap px-3 py-1.5 text-[13px] text-ink-dim transition-colors hover:text-ink sm:block">
             Log in
           </Link>
@@ -577,6 +583,7 @@ export default function LandingPage() {
             <Logo variant="lockup" size={34} tone="light" />
           </Link>
           <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-ink-dim">
+            <Link href="/download" className="text-accent/90 hover:text-accent">Download BUEL</Link>
             <a href="#pipeline" className="hover:text-ink">Pipeline</a>
             <a href="#council" className="hover:text-ink">Agent Council</a>
             <a href="#forensics" className="hover:text-ink">Wallet Forensics</a>
