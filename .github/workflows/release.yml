@@ -83,7 +83,14 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Publish release with installers
+      - name: Generate SHA-256 checksums
+        working-directory: artifacts
+        shell: bash
+        run: |
+          sha256sum BUEL-Windows-x64-setup.exe BUEL-Windows-x64.msi BUEL-macOS-AppleSilicon.dmg BUEL-macOS-Intel.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Publish release with installers + checksums
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
@@ -92,3 +99,4 @@ jobs:
             artifacts/BUEL-Windows-x64.msi
             artifacts/BUEL-macOS-AppleSilicon.dmg
             artifacts/BUEL-macOS-Intel.dmg
+            artifacts/SHA256SUMS.txt
